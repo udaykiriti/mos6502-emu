@@ -3,7 +3,7 @@
 
 A minimal, work-in-progress emulator for the MOS 6502 microprocessor,
 written in C++. Based on the classic tutorial approach from
-https://www.obelisk.me.uk/6502
+https://www.masswerk.at/6502/6502_instruction_set.html
 
 STATUS
 

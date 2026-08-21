@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
-// https://www.obelisk.me.uk/6502
+
+// https://www.masswerk.at/6502/6502_instruction_set.html
 //
+
 using Byte = unsigned char;
 using Word = unsigned short;
 using u32 = unsigned int;
