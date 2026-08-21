@@ -1,0 +1,17 @@
+# Build output
+6502
+*.o
+*.out
+*.exe
+
+# Debug symbols
+*.dSYM/
+*.pdb
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
