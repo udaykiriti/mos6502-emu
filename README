@@ -1,0 +1,54 @@
+6502 CPU Emulator (WIP)
+========================
+
+A minimal, work-in-progress emulator for the MOS 6502 microprocessor,
+written in C++. Based on the classic tutorial approach from
+https://www.obelisk.me.uk/6502
+
+STATUS
+
+Early stage. Currently implements:
+  - CPU reset
+  - Memory read/write (64KB address space)
+  - Byte and word fetch from program counter
+  - Opcodes: LDA Immediate, LDA Zero Page, LDA Zero Page,X, JSR
+
+Everything else (the rest of the 6502 instruction set, the stack
+pointer actually decrementing on push, addressing modes beyond the
+above) is not implemented yet.
+
+FILES
+
+  6502.cpp   - single source file, contains Mem, CPU, and main()
+
+BUILD
+
+  g++ -std=c++17 -Wall -Wextra -o 6502 6502.cpp
+
+RUN
+
+  ./6502
+
+The included main() loads a tiny hardcoded program into memory:
+a JSR to address 0x4242, which then runs LDA #0x84. After execution,
+register A should hold 0x84.
+
+DEBUGGING
+
+Useful things to check when adding new opcodes:
+  - Cycles is a signed int (s32). If an opcode's cycle count doesn't
+    match what Execute() is told to run for, the while loop can run
+    short or (if it were unsigned) wrap around and hang.
+  - Watch PC and Cycles in gdb/pwndbg when a new opcode misbehaves:
+        break CPU::Execute
+        watch Cycles
+        watch PC
+  - Inspect raw memory directly:
+        x/16xb mem.Data+0xFFFC
+
+TODO
+
+  - Implement remaining official opcodes (ADC, STA, branches, etc.)
+  - Proper stack push/pop (increment/decrement SP)
+  - Unit tests per opcode
+  - Cycle-accurate timing checks
