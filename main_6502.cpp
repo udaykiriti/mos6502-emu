@@ -1,9 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-
 // https://www.masswerk.at/6502/6502_instruction_set.html
-//
-
 using Byte = unsigned char;
 using Word = unsigned short;
 using u32 = unsigned int;
@@ -41,7 +38,7 @@ struct Mem {
 
 struct CPU {
   Word PC; // Program counter
-  Word SP; // stack pointer
+  Byte SP; // stack pointer (8-bit, indexes into page 0x0100-0x01FF)
   Byte A, X, Y; // registers
 
   Byte C : 1; // status flag
@@ -54,7 +51,7 @@ struct CPU {
 
   void Reset(Mem& memory) {
     PC = 0xFFFC;
-    SP = 0x0100;
+    SP = 0xFF; // real 6502 resets SP to 0xFD, using 0xFF here is fine for this toy
     C = Z = I = D = B = V = N = 0;
     A = X = Y = 0;
     memory.Initialise();
@@ -74,28 +71,52 @@ struct CPU {
     Data |= (memory[PC] << 8);
     PC++;
     Cycles -= 2;
-    // if you wanted to handle a big-endian platform
-    // you would have to swap bytes here
-    // if(PLATFORM_BIG_ENDIAN) SwapBytesInWord(Data)
     return Data;
   }
 
-  // reads a byte from an arbitrary address (not PC)
-  Byte ReadByte(s32& Cycles, Byte Address, Mem& memory) {
+  // reads a byte from an arbitrary 16-bit address (not PC)
+  Byte ReadByte(s32& Cycles, Word Address, Mem& memory) {
     Byte Data = memory[Address];
     Cycles--;
     return Data;
   }
 
-  // opcodes
-  static constexpr Byte INS_LDA_IM = 0xA9,
-                         INS_LDA_ZP = 0xA5,
-                         INS_LDA_ZPX = 0xB5,
-                         INS_JSR = 0x20;
+  // stack lives at 0x0100-0x01FF, grows downward
+  void PushWordToStack(s32& Cycles, Mem& memory, Word Value) {
+    memory.WriteWord(Value, 0x0100 + SP - 1, Cycles);
+    SP -= 2;
+  }
 
-  void LDASetStatus() {
-    Z = (A == 0);
-    N = (A & 0b10000000) > 0;
+  Word PopWordFromStack(s32& Cycles, Mem& memory) {
+    SP += 2;
+    Word Value = memory[0x0100 + SP - 1];
+    Value |= (memory[0x0100 + SP] << 8);
+    Cycles -= 2;
+    return Value;
+  }
+
+  // opcodes
+  static constexpr Byte
+      INS_LDA_IM  = 0xA9,
+      INS_LDA_ZP  = 0xA5,
+      INS_LDA_ZPX = 0xB5,
+      INS_LDA_ABS = 0xAD,
+
+      INS_LDX_IM  = 0xA2,
+      INS_LDX_ZP  = 0xA6,
+      INS_LDX_ZPY = 0xB6,
+
+      INS_LDY_IM  = 0xA0,
+      INS_LDY_ZP  = 0xA4,
+      INS_LDY_ZPX = 0xB4,
+
+      INS_JSR     = 0x20,
+      INS_RTS     = 0x60,
+      INS_NOP     = 0xEA;
+
+  void SetStatusFor(Byte Reg) {
+    Z = (Reg == 0);
+    N = (Reg & 0b10000000) > 0;
   }
 
   void Execute(s32 Cycles, Mem& memory) {
@@ -103,15 +124,14 @@ struct CPU {
       Byte Ins = FetchByte(Cycles, memory);
       switch (Ins) {
         case INS_LDA_IM: {
-          Byte Value = FetchByte(Cycles, memory);
-          A = Value;
-          LDASetStatus();
+          A = FetchByte(Cycles, memory);
+          SetStatusFor(A);
         } break;
 
         case INS_LDA_ZP: {
           Byte ZeroPageAddress = FetchByte(Cycles, memory);
           A = ReadByte(Cycles, ZeroPageAddress, memory);
-          LDASetStatus();
+          SetStatusFor(A);
         } break;
 
         case INS_LDA_ZPX: {
@@ -119,18 +139,73 @@ struct CPU {
           ZeroPageAddress += X;
           Cycles--; // extra cycle for the add
           A = ReadByte(Cycles, ZeroPageAddress, memory);
-          LDASetStatus();
+          SetStatusFor(A);
+        } break;
+
+        case INS_LDA_ABS: {
+          Word AbsAddress = FetchWord(Cycles, memory);
+          A = ReadByte(Cycles, AbsAddress, memory);
+          SetStatusFor(A);
+        } break;
+
+        case INS_LDX_IM: {
+          X = FetchByte(Cycles, memory);
+          SetStatusFor(X);
+        } break;
+
+        case INS_LDX_ZP: {
+          Byte ZeroPageAddress = FetchByte(Cycles, memory);
+          X = ReadByte(Cycles, ZeroPageAddress, memory);
+          SetStatusFor(X);
+        } break;
+
+        case INS_LDX_ZPY: {
+          Byte ZeroPageAddress = FetchByte(Cycles, memory);
+          ZeroPageAddress += Y;
+          Cycles--;
+          X = ReadByte(Cycles, ZeroPageAddress, memory);
+          SetStatusFor(X);
+        } break;
+
+        case INS_LDY_IM: {
+          Y = FetchByte(Cycles, memory);
+          SetStatusFor(Y);
+        } break;
+
+        case INS_LDY_ZP: {
+          Byte ZeroPageAddress = FetchByte(Cycles, memory);
+          Y = ReadByte(Cycles, ZeroPageAddress, memory);
+          SetStatusFor(Y);
+        } break;
+
+        case INS_LDY_ZPX: {
+          Byte ZeroPageAddress = FetchByte(Cycles, memory);
+          ZeroPageAddress += X;
+          Cycles--;
+          Y = ReadByte(Cycles, ZeroPageAddress, memory);
+          SetStatusFor(Y);
         } break;
 
         case INS_JSR: {
           Word SubAddr = FetchWord(Cycles, memory);
-          memory.WriteWord(PC - 1, SP, Cycles);
+          PushWordToStack(Cycles, memory, PC - 1);
           PC = SubAddr;
+          Cycles--;
+        } break;
+
+        case INS_RTS: {
+          Word ReturnAddress = PopWordFromStack(Cycles, memory);
+          PC = ReturnAddress + 1;
+          Cycles -= 2; // approximate; real RTS timing differs slightly
+        } break;
+
+        case INS_NOP: {
           Cycles--;
         } break;
 
         default: {
           printf("Instruction not handled: 0x%02X\n", Ins);
+          Cycles--; // avoid infinite loop on unknown opcode
         } break;
       }
     }
@@ -142,14 +217,16 @@ int main() {
   CPU cpu;
   cpu.Reset(mem);
 
-  // start - inline a little program
+  // program: JSR $4242 ; at $4242: LDA #$84 ; RTS
   mem[0xFFFC] = CPU::INS_JSR;
   mem[0xFFFD] = 0x42;
   mem[0xFFFE] = 0x42;
   mem[0x4242] = CPU::INS_LDA_IM;
   mem[0x4243] = 0x84;
-  // end - inline a little program
+  mem[0x4244] = CPU::INS_RTS;
 
-  cpu.Execute(8, mem); // JSR = 6 cycles, LDA_IM = 2 cycles
+  cpu.Execute(6 + 2 + 6, mem); // JSR(6) + LDA_IM(2) + RTS(6)
+
+  printf("A = 0x%02X, PC = 0x%04X, SP = 0x%02X\n", cpu.A, cpu.PC, cpu.SP);
   return 0;
 }
