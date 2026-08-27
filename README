@@ -1,13 +1,16 @@
 6502 CPU Emulator
 ==================
-A minimal emulator for the MOS 6502 microprocessor, written in C++.
-Based on the classic tutorial approach from
+
+A minimal emulator for the MOS 6502 microprocessor,
+written in C++..
+
 https://www.masswerk.at/6502/6502_instruction_set.html
 
 STATUS
-Implements the full official 6502 instruction set (151 opcodes, no
-illegal/undocumented opcodes):
-  - Loads/stores: LDA, LDX, LDY, STA, STX, STY (all addressing modes)
+------
+Implements the full official 6502 instruction set (151 opcodes(OP)):
+
+  - Loads/stores: LDA, LDX, LDY, STA, STX, STY
   - Transfers: TAX, TAY, TXA, TYA, TSX, TXS
   - Stack: PHA, PHP, PLA, PLP
   - Logic: AND, EOR, ORA, BIT
@@ -22,20 +25,10 @@ illegal/undocumented opcodes):
   - Cycle counts implemented and tested for every instruction above,
     including page-cross penalties on absolute,X/Y and (indirect),Y
 
-Known limitations:
+Limitations:
   - No BCD (decimal mode) arithmetic. The D flag is tracked but
     ADC/SBC always do binary math.
-  - No illegal/undocumented opcodes (e.g. LAX, SAX).
-  - Cycle counts are verified for the cases covered by the test
-    suite; not every addressing-mode/page-cross combination has an
-    explicit test yet (see TODO).
-
-FILES
-  cpu6502.h        - Mem and CPU structs; the emulator itself
-  main.cpp         - demo program (#include "cpu6502.h")
-  test_cpu6502.cpp - unit test suite (doctest), 44 test cases
-  doctest.h        - vendored single-header test framework
-  Makefile         - build/test/run targets
+  - No undocumented opcodes (e.g. LAX, SAX).
 
 BUILD
   make
@@ -44,44 +37,3 @@ BUILD
 RUN
   make run
   ./emu
-The included main() loads a small hardcoded program: JSR to 0x4242,
-which runs LDA #0x10, CLC, ADC #0x05, STA $10, LDX $10, RTS. After
-execution: A = 0x15, X = 0x15, mem[0x10] = 0x15.
-
-TEST
-  make test
-  (equivalent by hand: g++ -std=c++17 -Wall -Wextra -I. test_cpu6502.cpp -o test_cpu6502 && ./test_cpu6502)
-44 test cases / 81 assertions covering every instruction family,
-including flag behavior (signed overflow on ADC, borrow on SBC),
-wraparound on zero-page,X and INX/DEX, branch taken/not-taken/
-backward-loop cycle costs, the indirect-JMP page-wrap bug, and a
-full BRK -> RTI round trip. Writing this suite caught two real bugs
-(BRK and RTI were each 2 cycles short, which let leftover cycle
-budget spill into executing the next instruction) that a simple
-smoke-test main() did not surface.
-
-DEBUGGING
-Useful things to check when adding new opcodes:
-  - Cycles is a signed int (s32). If an opcode's cycle count doesn't
-    match what Execute() is told to run for, the while loop can run
-    short (executing part of the next instruction on leftover
-    budget) or long.
-  - Watch PC and Cycles in gdb/pwndbg when a new opcode misbehaves:
-        break CPU::Execute
-        watch Cycles
-        watch PC
-  - Inspect raw memory directly:
-        x/16xb mem.Data+0xFFFC
-  - When a new opcode's behavior looks right but a test around it
-    fails intermittently or with a nonsensical PC/SP, check its
-    cycle count first -- a short count is the most common cause and
-    was the source of both bugs found so far (BRK, RTI).
-
-TODO
-  - BCD (decimal mode) for ADC/SBC
-  - Illegal/undocumented opcodes, if cycle-perfect NES/C64
-    compatibility is ever a goal
-  - Explicit tests for every remaining addressing-mode/page-cross
-    combination (currently only representative cases are covered
-    per instruction family)
-  - IRQ/NMI line simulation beyond the BRK software interrupt
