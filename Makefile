@@ -1,17 +1,19 @@
-CXX = g++
-CXXFLAGS = -std=c++17 -Wall -Wextra -g
-TARGET = 6502
-SRC = main_6502.cpp
+CXX      := g++
+CXXFLAGS := -std=c++17 -Wall -Wextra -O2
 
-all: $(TARGET)
+.PHONY: all test clean run
 
-$(TARGET): $(SRC)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC)
+all: emu
 
-run: $(TARGET)
-	./$(TARGET)
+emu: main.cpp cpu6502.h
+	$(CXX) $(CXXFLAGS) main.cpp -o emu
+
+test: test_cpu6502.cpp cpu6502.h doctest.h
+	$(CXX) $(CXXFLAGS) -I. test_cpu6502.cpp -o test_cpu6502
+	./test_cpu6502
+
+run: emu
+	./emu
 
 clean:
-	rm -f $(TARGET)
-
-.PHONY: all run clean
+	rm -f emu test_cpu6502

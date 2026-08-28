@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 // Reference: https://www.masswerk.at/6502/6502_instruction_set.html
-// Covers the full official 6502 instruction set (no illegal/undocumented
-// opcodes). Decimal (BCD) mode for ADC/SBC is not implemented (D flag is
-// tracked but ignored in math).
+// Covers official 6502 instruction set 
+// Decimal (BCD) mode for ADC/SBC is not implemented 
+// D flag is tracked but ignored in math
 
 using Byte = unsigned char;
 using Word = unsigned short;
@@ -1166,3 +1166,4 @@ int main() {
          cpu.X, mem[0x10], cpu.PC, cpu.SP);
   return 0;
 }
+  

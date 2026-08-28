@@ -4,7 +4,7 @@
 A minimal emulator for the MOS 6502 microprocessor,
 written in C++..
 
-https://www.masswerk.at/6502/6502_instruction_set.html
+source: https://www.masswerk.at/6502/6502_instruction_set.html
 
 STATUS
 ------
